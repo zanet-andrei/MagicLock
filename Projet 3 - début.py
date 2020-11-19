@@ -109,6 +109,9 @@ class Message(Affichage):
                     self.sense().show_message("R -> Save")
                     self.sense().show_message("L -> Erase")
                     newEvent = self.sense().stick.wait_for_event()
+                    # quand j'utilisais event = self.sense()..., pour je ne sais quelle raison
+                    # on passait directement dans le premier if. donc j'ai crée une nouvelle variable qui attend 
+                    # pour un input de l'utilisateur et ça fonctionne
                     while newEvent.direction == "up" or newEvent.direction == "down":
                         newEvent = self.sense().stick.wait_for_event()
                     if newEvent.direction == "right":
