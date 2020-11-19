@@ -196,4 +196,4 @@ class Message(Affichage):
         return self.message
 
 mess = Message()
-mess.encodeMessage()
+mess.askMessage()
