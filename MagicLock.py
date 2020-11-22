@@ -1,16 +1,44 @@
+# Projet "MagicLock" réalise par Saatci Ari, Rixen Thomas, Tellez Sanclemente Mateo, Zanet Ionut Andrei
+
 from sense_hat import SenseHat
 from time import sleep
+from file import *
+from crypto import *
+
+#########################
+# REMARQUES SUR LE CODE #
+#########################
+
+# 1) les variables newEvent ont été crées car autrement le logiciel supposait que la direction était déjà RIGHT (pourquoi? je sais pas.)
+
+# 2) la vitesse des show_message() est à ajuster selon chaque cas pour rendre l'interface moins emmerdante à utiliser
+
+# 3) les données sont stockées dans un fichier texte intitulé message.txt, formaté de la manière suivante:
+# <ENCODED_MESSAGE> <HASHED_PASSWORD>
+
+# 4) Les méthodes de hashing et d'encodage ne sont pas parfaites. Si on souhaite "améliorer" cela, voir:
+#    - PBKDF2 pour le hashing
+#    - AES pour l'encodage des données
+
+# 5) l'interface est très clairement moche et pas très sympathique ni intuitive à utiliser, donc à revoir
+
+# 6) la plupart des fonctions me semblent relativement intuitives au niveau de leur fonctionnement donc elles ne sont accompagnées que des
+# pré et post conditions, s'il y a des questions relatives au code, posez-les sur le discord Projet 3
+
+# 7) si vous rencontrez des bugs, dites le sur le discord Projet 3
 
 
 class Affichage:
-
+    
+    # Le but de cette classe est de mettre en place les fonctions d'affichage des chiffres
+    # ainsi que d'initialiser le SenseHat
+    
     count = 0
     s = SenseHat()
     
     def __init__(self):
         self.affichage = Affichage.count
         self.__sense = Affichage.s
-        
     
     def sense(self):
         return self.__sense
@@ -59,14 +87,35 @@ class Affichage:
         """
         self.sense().show_letter(str(self.affichage), text_colour=color)
     
-    def __str__(self):
-        return self.affichage()
+class MagicLock(Affichage):
     
-class Message(Affichage):
+    # Cette classe contient la majorité des fonctions relatives au MagicLock
+    # 1) Message
+        # - Demander le message
+        # - Effacer le message
+    # 2) Code
+        # - Demander le code
+        # - Effacer le code
+    # 3) Sécurité
+        # - Encoder le message
+        # - Hacher le mot de passe
+    # 4) Fichier
+        # - Vérifier si le fichier existe déjà
+        # - Détruire le fichier
+        # - Écrire le message encodé et le mot de passe hashé dans ce fichier
+        # - Récupérer les infos du fichier
+    
     
     def __init__(self):
         super().__init__()
         self.message = ""
+        self.password = ""
+    
+    
+    ###############
+    #   MESSAGE   #
+    ###############
+    
     
     def clearMessage(self):
         self.message = ""
@@ -85,12 +134,13 @@ class Message(Affichage):
                 LEFT = recommencer à écrire le message
             3) une fois qu'il fait right deux fois d'affilée, le message est stocké.
         """
-                                                
+        self.sense().show_message("Enter Message")                                        
         self.showCount()
         messageDone = False
         while messageDone == False:
             event = self.sense().stick.wait_for_event()
             while event.direction == "left":
+                self.sense().show_message("U/D/M/R")
                 event = self.sense().stick.wait_for_event()
             if event.direction == "up" and event.action == "released":
                 self.incrementCount()
@@ -99,6 +149,7 @@ class Message(Affichage):
                 self.decreaseCount()
                 self.showCount()
             elif event.direction == "middle" and event.action == "pressed":
+                # Feedback visuel pour indiquer que le chiffre a été ajouté
                 self.showCountColor([255, 0, 0])
                 sleep(0.1)
                 self.showCount()
@@ -106,17 +157,13 @@ class Message(Affichage):
             elif event.direction == "right" and event.action == "released":
                 if not(len(self.message) == 0):
                     self.sense().show_message(self.message)
-                    self.sense().show_message("R -> Save")
-                    self.sense().show_message("L -> Erase")
+                    self.sense().show_message("L = Del R = Save")
                     newEvent = self.sense().stick.wait_for_event()
-                    # quand j'utilisais event = self.sense()..., pour je ne sais quelle raison
-                    # on passait directement dans le premier if. donc j'ai crée une nouvelle variable qui attend 
-                    # pour un input de l'utilisateur et ça fonctionne
-                    while newEvent.direction == "up" or newEvent.direction == "down":
+                    while newEvent.direction == "up" or newEvent.direction == "down" or newEvent.direction == "middle":
+                        self.sense().show_message("L/R")
                         newEvent = self.sense().stick.wait_for_event()
                     if newEvent.direction == "right":
                         self.sense().show_message("Saved")
-                        self.writeMessageToFile("message.txt")
                         messageDone = True
                     elif newEvent.direction == "left":
                         self.sense().show_message("Erased")
@@ -127,76 +174,237 @@ class Message(Affichage):
                 else:
                     self.sense().show_message("Empty")
                     self.showCount()
-
-    def writeMessageToFile(self, filename):
-        """
-        pre: filename est une chaine de caractères qui correspond à un fichier texte
-        post: écrit le message encodé (attention: à faire une fois qu'on a cryptographie.py) dans le fichier filename avec le hash du mot de passe
-        """
-        f = open(filename, "w")
-        f.write(self.message)
-        # Ici, il faudra faire attention à ENCODER le message avant de l'inscrire dans le fichier!
-        # Pour l'instant, je n'écris que le message décodé (on n'a pas cryptographie.py)
-        f.close()
+                    
+                    
+    ############
+    #   CODE   #
+    ############
     
-    def messageExists(self, filename):
+    
+    def clearPassword(self):
+        self.password = ""
+    
+    def askPassword(self):
         """
-        pre: filename est une chaine de caractères qui correspond à un fichier texte
-        post: renvoie True si le fichier existe, et False s'il ne contient aucune ligne ou s'il n'existe pas
+        pre: aucun
+        post: permet d'enregister le code (suite de positions Z, Y, X arrondies en dessous avec la fonction int()).
+                RIGHT = confirmer le code
+                    -> RIGHT = sauvegarder le code
+                    -> LEFT = effacer le code et recommencer
+                MIDDLE = ajouter les positions actuelles au code
+        """
+        self.sense().show_message("Enter Password")                                    
+        passwordDone = False
+        while passwordDone == False:
+            event = self.sense().stick.wait_for_event()
+            while event.direction == "up" or event.direction == "left" or event.direction == "down":
+                self.sense().show_message("M/R")
+                event = self.sense().stick.wait_for_event()
+            if event.direction == "middle" and event.action == "pressed":
+                orientation = self.sense().get_orientation()
+                self.password += str(int(orientation["pitch"])) + "|" + str(int(orientation["roll"])) + "|" + str(int(orientation["yaw"])) + "|"
+                # Feedback visuel
+                self.sense().show_letter("S") # S pour Saved
+                sleep(0.1)
+                self.sense().clear() 
+            elif event.direction == "right" and event.action == "released":
+                if not(len(self.password) == 0):
+                    self.sense().show_message("L = Del R = Save")
+                    newEvent = self.sense().stick.wait_for_event()
+                    while newEvent.direction == "up" or newEvent.direction == "down" or newEvent.direction == "middle":
+                        self.sense().show_message("L/R")
+                        newEvent = self.sense().stick.wait_for_event()
+                    if newEvent.direction == "right":
+                        self.sense().show_message("Saved")
+                        passwordDone = True
+                    elif newEvent.direction == "left":
+                        self.sense().show_message("Erased")
+                        self.clearPassword()
+                else:
+                    self.sense().show_message("Empty")
+                    
+                    
+    ###############
+    #   FICHIER   #
+    ###############
+    
+    
+    def messageExists(self):
+        """
+        pre: filename est un string
+        post: si le fichier filename existe, renvoie True. False autrement
+        """
+        return exists("message.txt")
+    
+    def destroyFile(self):
+        """
+        pre: aucun
+        post: efface le contenu de message.txt et renvoie True. False si erreur (fichier existe pas)
+        """
+        if self.messageExists("message.txt") == True:
+            delete("message.txt")
+            return True
+        else:
+            return False
+    
+    def readFile(self):
+        """
+        pre: aucun
+        post: renvoie un string contenant les données du fichier message.txt
+        """
+        if self.messageExists() == True:
+            return read("message.txt")
+        else:
+            return None
+        
+    def writeToFile(self):
+        """
+        pre: aucun
+        post: renvoie True si le message encodé et le mot de passe hashé a pu être écrit dans message.txt. False autrement
         """
         try:
-            f = open(filename, "r")
-            lines = f.readlines()
-            if len(lines) == 0:
-                return False
+            write("message.txt", self.lineToAppend())
             return True
-        except FileNotFoundError:
+        except OSError:
             return False
+        
     
-    def destroyFile(self, filename):
-        """
-        pre: filename est une chaine de caractères qui correspond à un fichier texte
-        post: détruit le fichier s'il existe et renvoie True, False autrement
-        """
-        if messageExists(filename) == True:
-            from os import remove
-            remove(filename)
-            return True
-        return False
+    ################
+    #   SÉCURITÉ   #
+    ################
     
-    def readFile(self, filename):
-        """
-        pre: filename est une chaîne de caractères correspondant à un fichier texte
-        post: renvoie les lignes se trouvant dans le fichier, et False si le fichier n'existe pas.
-        """
-        if self.messageExists(filename) == False:
-            return False
-        else:
-            f = open(filename, "r")
-            lines = f.readlines()
-            # Les données dans le fichier sont stockées de la manière suivante:
-            # MESSAGE HASHPASSWORD
-            return lines
     
-    def checkPasswordHash(self, filename, password):
+    def encodeMessage(self):
         """
-        pre: filename est une chaîne de caractères qui correspond à un fichier texte
-             password est une chaîne de caractères
-        post: si le hash de password est identique à celui stocké dans le fichier filename, renvoyer True.  False autrement
+        pre: password est une liste d'entiers correspondant à une suite de 3 positions dans l'espace
+        post: encode le message selon la fonction encode de crypto
         """
-        lines = self.readFile(filename)
-        # Quand on aura le fichier cryptographie.py de l'assistant on pourra compléter ce bout de code.
+        self.message = encode(self.password, self.message)
     
-    def decodeMessage(self, password):
-        # Quand on aura le fichier cryptographie.py de l'assistant on pourra compléter ce bout de code.
+    def hashPassword(self):
         """
-        pre: password est une chaîne de caractères
-        post: renvoie le message décodé selon la méthode d'encodage du fichier cryptographie.py
+        pre: aucun
+        post: hash le mot de passe selon la fonction hashing de crypto
         """
-        pass
+        self.password = hashing(self.password)
     
-    def __str__(self):
-        return self.message
+    def lineToAppend(self):
+        """
+        pre: aucun
+        post: renvoie une ligne contenant le message encodé et le mot de passe hashé.
+        """
+        self.encodeMessage()
+        self.hashPassword()
+        l = self.message + " " + self.password
+        return l
 
-mess = Message()
-mess.askMessage()
+class DecodeMessage(MagicLock):
+    
+    # Cette classe permet de vérifier que le mot de passe est correct ainsi que décoder le message
+    # 1) Hashing
+        # - Vérifier que le hashing est correct
+    # 2) Décryption
+        # - Décoder le message avec le mot de passe
+    # 3) Interface post-décryption
+        # Permet à l'utilisateur de choisir s'il veut
+            # - Détruire le message et en écrire un nouveau
+            # - Conserver le message
+            # - Quitter l'application
+    
+    def __init__(self):
+        super().__init__()
+        data = self.readFile().split(" ")
+        self.encodedMessage = data[0]
+        self.hashedPassword = data[1]
+        
+        
+    ###############
+    #   Hashing   #
+    ###############
+    
+    
+    def checkHash(self):
+        """
+        pre: aucun
+        post: vérifie si le hash de password équivaut à celui stocké dans le fichier message.txt. True si oui, False autrement
+        """
+        return hashing(self.password) == self.hashedPassword
+    
+    
+    ##################
+    #   Décryption   #
+    ##################
+    
+    
+    def decodeMessage(self):
+        """
+        pre: aucun
+        post: si le hash des mot de passes est identique, décode le message selon la méthode decode de crypto et l'affiche. Renvoie None autrement
+        """
+        if self.checkHash() == True:
+            self.message = decode(self.password, self.encodedMessage)
+            self.sense().show_message(self.message)
+            return True
+        else:
+            self.sense().show_message("Wrong")
+            return False
+        
+        
+    #################
+    #   Interface   #
+    #################
+    
+    
+    def postDecryption(self):
+        """
+        pre: aucun
+        post: demande à l'utilisateur ce qu'il souhaite faire après avoir décodé le message
+                LEFT = effacer le message et recommencer (renvoie -1)
+                RIGHT = sauvegarder le message et recommencer (renvoie 1)
+                MIDDLE = quitter l'application (renvoie 0)
+        """
+        actionFinished = False
+        self.sense().show_message("L = Del R = Save M = Exit")
+        while actionFinished == False:
+            event = self.sense().stick.wait_for_event()
+            while event.direction == "up" or event.direction == "down":
+                self.sense().show_message("L/M/R")
+                event = self.sense().stick.wait_for_event()
+            if event.direction == "right" and event.action == "released":
+                return 1
+            elif event.direction == "left" and event.action == "released":
+                return -1
+            elif event.direction == "middle" and event.action == "pressed":
+                self.sense().show_message("Bye")
+                return 0
+    
+    
+if __name__ == "__main__":    
+    lock = MagicLock()
+    if lock.messageExists() == False:
+        # si aucun message existe, alors demander un message et un code.
+        lock.askMessage()
+        lock.askPassword()
+        lock.writeToFile()
+    else:
+        # demander le mot de passe
+        decrypt = DecodeMessage()
+        decrypt.askPassword()
+        while decrypt.decodeMessage() == False:
+            # tant qu'il est faux
+            decrypt.clearPassword()
+            decrypt.askPassword()
+        after = decrypt.postDecryption()
+        while after != 0:
+            # voir pre/post conditions de postDecryption()
+            if after == 1:
+                decrypt.clearPassword()
+                decrypt.askPassword()
+                while decrypt.decodeMessage() == False:
+                    decrypt.clearPassword()
+                    decrypt.askPassword()
+            else:
+                lock.destroyFile()
+                lock.askMessage()
+                lock.writeToFile()
+            after = decrypt.postDecryption()
