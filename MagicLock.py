@@ -27,7 +27,6 @@ from crypto import *
 
 # 7) si vous rencontrez des bugs, dites le sur le discord Projet 3
 
-
 class Affichage:
     
     # Le but de cette classe est de mettre en place les fonctions d'affichage des chiffres
@@ -196,7 +195,7 @@ class MagicLock(Affichage):
         self.sense().show_message("Enter Password")                                    
         passwordDone = False
         while passwordDone == False:
-            event = self.sense().stick.wait_for_event()
+            event = self.sense().stick.wait_for_event(emptybuffer=True)
             while event.direction == "up" or event.direction == "left" or event.direction == "down":
                 self.sense().show_message("M/R")
                 event = self.sense().stick.wait_for_event()
@@ -241,7 +240,7 @@ class MagicLock(Affichage):
         pre: aucun
         post: efface le contenu de message.txt et renvoie True. False si erreur (fichier existe pas)
         """
-        if self.messageExists("message.txt") == True:
+        if self.messageExists() == True:
             delete("message.txt")
             return True
         else:
@@ -366,10 +365,10 @@ class DecodeMessage(MagicLock):
         actionFinished = False
         self.sense().show_message("L = Del R = Save M = Exit")
         while actionFinished == False:
-            event = self.sense().stick.wait_for_event()
+            event = self.sense().stick.wait_for_event(emptybuffer=True)
             while event.direction == "up" or event.direction == "down":
                 self.sense().show_message("L/M/R")
-                event = self.sense().stick.wait_for_event()
+                event = self.sense().stick.wait_for_event(emptybuffer=True)
             if event.direction == "right" and event.action == "released":
                 return 1
             elif event.direction == "left" and event.action == "released":
@@ -403,8 +402,9 @@ if __name__ == "__main__":
                 while decrypt.decodeMessage() == False:
                     decrypt.clearPassword()
                     decrypt.askPassword()
-            else:
+            elif after == -1:
                 lock.destroyFile()
                 lock.askMessage()
+                lock.askPassword()
                 lock.writeToFile()
             after = decrypt.postDecryption()
