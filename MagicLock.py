@@ -5,28 +5,6 @@ from time import sleep
 from file import *
 from crypto import *
 
-#########################
-# REMARQUES SUR LE CODE #
-#########################
-
-# 1) les variables newEvent ont été crées car autrement le logiciel supposait que la direction était déjà RIGHT (pourquoi? je sais pas.)
-
-# 2) la vitesse des show_message() est à ajuster selon chaque cas pour rendre l'interface moins emmerdante à utiliser
-
-# 3) les données sont stockées dans un fichier texte intitulé message.txt, formaté de la manière suivante:
-# <ENCODED_MESSAGE> <HASHED_PASSWORD>
-
-# 4) Les méthodes de hashing et d'encodage ne sont pas parfaites. Si on souhaite "améliorer" cela, voir:
-#    - PBKDF2 pour le hashing
-#    - AES pour l'encodage des données
-
-# 5) l'interface est très clairement moche et pas très sympathique ni intuitive à utiliser, donc à revoir
-
-# 6) la plupart des fonctions me semblent relativement intuitives au niveau de leur fonctionnement donc elles ne sont accompagnées que des
-# pré et post conditions, s'il y a des questions relatives au code, posez-les sur le discord Projet 3
-
-# 7) si vous rencontrez des bugs, dites le sur le discord Projet 3
-
 class Affichage:
     
     # Le but de cette classe est de mettre en place les fonctions d'affichage des chiffres
@@ -133,13 +111,13 @@ class MagicLock(Affichage):
                 LEFT = recommencer à écrire le message
             3) une fois qu'il fait right deux fois d'affilée, le message est stocké.
         """
-        self.sense().show_message("Enter Message")                                        
+        self.sense().show_message("Enter Message", 0.05)                                        
         self.showCount()
         messageDone = False
         while messageDone == False:
-            event = self.sense().stick.wait_for_event()
+            event = self.sense().stick.wait_for_event(emptybuffer=True)
             while event.direction == "left":
-                self.sense().show_message("U/D/M/R")
+                self.sense().show_message("U/D/M/R", 0.05)
                 event = self.sense().stick.wait_for_event()
             if event.direction == "up" and event.action == "released":
                 self.incrementCount()
@@ -155,23 +133,23 @@ class MagicLock(Affichage):
                 self.message += str(self.affichage)
             elif event.direction == "right" and event.action == "released":
                 if not(len(self.message) == 0):
-                    self.sense().show_message(self.message)
-                    self.sense().show_message("L = Del R = Save")
+                    self.sense().show_message(self.message, 0.05)
+                    self.sense().show_message("L = Del R = Save", 0.05)
                     newEvent = self.sense().stick.wait_for_event()
                     while newEvent.direction == "up" or newEvent.direction == "down" or newEvent.direction == "middle":
-                        self.sense().show_message("L/R")
+                        self.sense().show_message("L/R", 0.05)
                         newEvent = self.sense().stick.wait_for_event()
                     if newEvent.direction == "right":
-                        self.sense().show_message("Saved")
+                        self.sense().show_message("Saved", 0.05)
                         messageDone = True
                     elif newEvent.direction == "left":
-                        self.sense().show_message("Erased")
+                        self.sense().show_message("Erased", 0.05)
                         self.clearMessage()
                         self.resetCount()
                         sleep(0.1)
                         self.showCount()
                 else:
-                    self.sense().show_message("Empty")
+                    self.sense().show_message("Empty", 0.05)
                     self.showCount()
                     
                     
@@ -192,12 +170,12 @@ class MagicLock(Affichage):
                     -> LEFT = effacer le code et recommencer
                 MIDDLE = ajouter les positions actuelles au code
         """
-        self.sense().show_message("Enter Password")                                    
+        self.sense().show_message("Enter Password", 0.05)                                    
         passwordDone = False
         while passwordDone == False:
             event = self.sense().stick.wait_for_event(emptybuffer=True)
             while event.direction == "up" or event.direction == "left" or event.direction == "down":
-                self.sense().show_message("M/R")
+                self.sense().show_message("M/R", 0.05)
                 event = self.sense().stick.wait_for_event()
             if event.direction == "middle" and event.action == "pressed":
                 orientation = self.sense().get_orientation()
@@ -208,19 +186,19 @@ class MagicLock(Affichage):
                 self.sense().clear() 
             elif event.direction == "right" and event.action == "released":
                 if not(len(self.password) == 0):
-                    self.sense().show_message("L = Del R = Save")
+                    self.sense().show_message("L = Del R = Save", 0.05)
                     newEvent = self.sense().stick.wait_for_event()
                     while newEvent.direction == "up" or newEvent.direction == "down" or newEvent.direction == "middle":
-                        self.sense().show_message("L/R")
+                        self.sense().show_message("L/R", 0.05)
                         newEvent = self.sense().stick.wait_for_event()
                     if newEvent.direction == "right":
-                        self.sense().show_message("Saved")
+                        self.sense().show_message("Saved", 0.05)
                         passwordDone = True
                     elif newEvent.direction == "left":
-                        self.sense().show_message("Erased")
+                        self.sense().show_message("Erased", 0.05)
                         self.clearPassword()
                 else:
-                    self.sense().show_message("Empty")
+                    self.sense().show_message("Empty", 0.05)
                     
                     
     ###############
@@ -342,10 +320,10 @@ class DecodeMessage(MagicLock):
         """
         if self.checkHash() == True:
             self.message = decode(self.password, self.encodedMessage)
-            self.sense().show_message(self.message)
+            self.sense().show_message(self.message, 0.05)
             return True
         else:
-            self.sense().show_message("Wrong")
+            self.sense().show_message("Wrong", 0.05)
             return False
         
         
@@ -363,18 +341,18 @@ class DecodeMessage(MagicLock):
                 MIDDLE = quitter l'application (renvoie 0)
         """
         actionFinished = False
-        self.sense().show_message("L = Del R = Save M = Exit")
+        self.sense().show_message("L = Del R = Save M = Exit", 0.05)
         while actionFinished == False:
             event = self.sense().stick.wait_for_event(emptybuffer=True)
             while event.direction == "up" or event.direction == "down":
-                self.sense().show_message("L/M/R")
+                self.sense().show_message("L/M/R", 0.05)
                 event = self.sense().stick.wait_for_event(emptybuffer=True)
             if event.direction == "right" and event.action == "released":
                 return 1
             elif event.direction == "left" and event.action == "released":
                 return -1
             elif event.direction == "middle" and event.action == "pressed":
-                self.sense().show_message("Bye")
+                self.sense().show_message("Bye", 0.05)
                 return 0
     
     
@@ -408,3 +386,4 @@ if __name__ == "__main__":
                 lock.askPassword()
                 lock.writeToFile()
             after = decrypt.postDecryption()
+
