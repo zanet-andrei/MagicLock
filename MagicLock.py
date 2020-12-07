@@ -12,7 +12,6 @@ class Affichage:
     
     count = 0
     s = SenseHat()
-    
     def __init__(self):
         self.affichage = Affichage.count
         self.__sense = Affichage.s
@@ -21,6 +20,7 @@ class Affichage:
         return self.__sense
     
     def incrementCount(self):
+      
         """
         pre: aucun
         post: modifie le message à afficher à l'écran (+1)
@@ -179,8 +179,16 @@ class MagicLock(Affichage):
                 event = self.sense().stick.wait_for_event()
             if event.direction == "middle" and event.action == "pressed":
                 orientation = self.sense().get_orientation()
-                self.password += str(int(orientation["pitch"])) + "|" + str(int(orientation["roll"])) + "|" + str(int(orientation["yaw"])) + "|"
-                # Feedback visuel
+                pitch = int(orientation["pitch"])
+                roll = int(orientation["roll"])
+                yaw = int(orientation["yaw"])
+                positions = [pitch, roll, yaw]
+                for pos in range(len(positions)):
+                    for x in range(9):
+                        if positions[pos] >= 45*(x-1) and positions[pos] <= 45*x:
+                            positions[pos] = x
+                for i in positions:
+                    self.password += str(i)
                 self.sense().show_letter("S") # S pour Saved
                 sleep(0.1)
                 self.sense().clear() 
@@ -206,31 +214,31 @@ class MagicLock(Affichage):
     ###############
     
     
-    def messageExists(self):
+    def messageExists(self, filename):
         """
         pre: filename est un string
         post: si le fichier filename existe, renvoie True. False autrement
         """
-        return exists("message.txt")
+        return exists(filename)
     
-    def destroyFile(self):
+    def destroyFile(self, filename):
         """
         pre: aucun
         post: efface le contenu de message.txt et renvoie True. False si erreur (fichier existe pas)
         """
-        if self.messageExists() == True:
-            delete("message.txt")
+        if self.messageExists(filename) == True:
+            delete(filename)
             return True
         else:
             return False
     
-    def readFile(self):
+    def readFile(self, filename):
         """
         pre: aucun
         post: renvoie un string contenant les données du fichier message.txt
         """
-        if self.messageExists() == True:
-            return read("message.txt")
+        if self.messageExists(filename) == True:
+            return read(filename)
         else:
             return None
         
@@ -239,8 +247,11 @@ class MagicLock(Affichage):
         pre: aucun
         post: renvoie True si le message encodé et le mot de passe hashé a pu être écrit dans message.txt. False autrement
         """
+        
         try:
-            write("message.txt", self.lineToAppend())
+            self.encodeData()
+            write("message.txt", self.message)
+            write("password.txt", self.password)
             return True
         except OSError:
             return False
@@ -265,15 +276,13 @@ class MagicLock(Affichage):
         """
         self.password = hashing(self.password)
     
-    def lineToAppend(self):
+    def encodeData(self):
         """
         pre: aucun
         post: renvoie une ligne contenant le message encodé et le mot de passe hashé.
         """
         self.encodeMessage()
         self.hashPassword()
-        l = self.message + " " + self.password
-        return l
 
 class DecodeMessage(MagicLock):
     
@@ -290,9 +299,8 @@ class DecodeMessage(MagicLock):
     
     def __init__(self):
         super().__init__()
-        data = self.readFile().split(" ")
-        self.encodedMessage = data[0]
-        self.hashedPassword = data[1]
+        self.encodedMessage = self.readFile("message.txt")
+        self.hashedPassword = self.readFile("password.txt")
         
         
     ###############
@@ -358,7 +366,7 @@ class DecodeMessage(MagicLock):
     
 if __name__ == "__main__":    
     lock = MagicLock()
-    if lock.messageExists() == False:
+    if lock.messageExists("message.txt") == False or lock.messageExists("password.txt") == False:
         # si aucun message existe, alors demander un message et un code.
         lock.askMessage()
         lock.askPassword()
