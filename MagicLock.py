@@ -184,8 +184,8 @@ class MagicLock(Affichage):
                 yaw = int(orientation["yaw"])
                 positions = [pitch, roll, yaw]
                 for pos in range(len(positions)):
-                    for x in range(9):
-                        if positions[pos] >= 45*(x-1) and positions[pos] <= 45*x:
+                    for x in range(5):
+                        if positions[pos] >= 90*(x-1) and positions[pos] <= 90*x:
                             positions[pos] = x
                 for i in positions:
                     self.password += str(i)
@@ -264,7 +264,7 @@ class MagicLock(Affichage):
     
     def encodeMessage(self):
         """
-        pre: password est une liste d'entiers correspondant à une suite de 3 positions dans l'espace
+        pre: password est une chaîne de caractères qui correspond à des suites de positions dans l'espace
         post: encode le message selon la fonction encode de crypto
         """
         self.message = encode(self.password, self.message)
